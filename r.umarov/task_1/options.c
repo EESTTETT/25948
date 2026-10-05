@@ -7,10 +7,10 @@
 #include <string.h>
 #include <ulimit.h>
 #include <errno.h>
+#include <time.h>
 
 extern char **environ;
 
-/* Структура для сохранения порядка и аргументов опций */
 typedef struct {
     char opt;
     char *arg;
@@ -26,10 +26,8 @@ int main(int argc, char *argv[]) {
     int opt_count = 0;
     int c;
     
-    /* 1. Считываем опции слева направо через getopt и сохраняем в массив */
-    while ((c = getopt(argc, argv, "ispuU:cC:dvV:")) != -1) {
+    while ((c = getopt(argc, argv, "ispuU:cC:dvV:t")) != -1) {
         if (c == '?') {
-            /* getopt сам выведет сообщение о недопустимой опции */
             continue; 
         }
         opts[opt_count].opt = c;
@@ -37,7 +35,6 @@ int main(int argc, char *argv[]) {
         opt_count++;
     }
     
-    /* 2. Выполняем опции СПРАВА НАЛЕВО */
     for (int i = opt_count - 1; i >= 0; i--) {
         switch (opts[i].opt) {
             case 'i':
@@ -68,7 +65,6 @@ int main(int argc, char *argv[]) {
             }
             
             case 'U': {
-                /* Используем atol(3C) согласно подсказке из руководства */
                 long new_val = atol(opts[i].arg);
                 if (new_val < 0) {
                     fprintf(stderr, "[ -U ] Ошибка: неудачное (отрицательное) значение для U: %ld\n", new_val);
@@ -130,7 +126,6 @@ int main(int argc, char *argv[]) {
             }
             
             case 'V': {
-                /* Выделяем память для putenv, так как строка должна оставаться в памяти */
                 char *env_str = malloc(strlen(opts[i].arg) + 1);
                 if (env_str) {
                     strcpy(env_str, opts[i].arg);
@@ -141,6 +136,26 @@ int main(int argc, char *argv[]) {
                         printf("[ -V ] Переменная среды установлена/изменена: %s\n", opts[i].arg);
                     }
                 }
+                break;
+            }
+
+            case 't': {
+                setenv("TZ", "America/Los_Angeles", 1);
+                tzset();
+                time_t now;
+                time(&now);
+                struct tm *sp = localtime(&now);
+                if (sp == NULL) {
+                    perror("[ -t ] localtime");
+                    break;
+                }
+                printf("[ -t ] California Time: %02d/%02d/%04d %02d:%02d %s\n",
+                       sp->tm_mon + 1,
+                       sp->tm_mday,
+                       sp->tm_year + 1900,
+                       sp->tm_hour,
+                       sp->tm_min,
+                       tzname[sp->tm_isdst]);
                 break;
             }
         }
